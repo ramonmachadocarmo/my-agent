@@ -1,0 +1,49 @@
+# ---- secrets and local configuration --------------------------------------
+# my-agent.json may hold API keys, DSNs and e-mail passwords: never commit it.
+# A complete, secret-free example lives in docs/examples/my-agent.full.json.
+/my-agent.json
+*.local.json
+.env
+.env.*
+!.env.example
+
+# ---- runtime data ------------------------------------------------------------
+# knowledge base index (rag.store_path) and local databases used by connectors
+/data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+
+# ---- build output ------------------------------------------------------------
+/bin/
+/dist/
+SHA256SUMS.tmp
+*.exe
+*.exe.old
+*.test
+*.out
+coverage.*
+/tmp/
+
+# ---- Go ----------------------------------------------------------------------
+go.work
+go.work.sum
+/vendor/
+
+# ---- editors and tools -------------------------------------------------------
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+*~
+.claude/settings.local.json
+
+# ---- operating systems -------------------------------------------------------
+.DS_Store
+._*
+Thumbs.db
+desktop.ini

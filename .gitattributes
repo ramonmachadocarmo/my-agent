@@ -1,0 +1,23 @@
+# Normalize text files; keep the line endings each platform's tools need,
+# whatever core.autocrlf is set to on the machine that checks them out.
+* text=auto
+
+*.go          text eol=lf
+*.md          text eol=lf
+*.json        text eol=lf
+go.mod        text eol=lf
+go.sum        text eol=lf
+*.html        text eol=lf
+
+# shell scripts run on Linux and macOS: a CRLF would break them
+*.sh          text eol=lf
+# Windows scripts: cmd needs CRLF; PowerShell 5.1 reads them best that way
+*.cmd         text eol=crlf
+*.bat         text eol=crlf
+*.ps1         text eol=crlf
+
+*.png         binary
+*.ico         binary
+*.exe         binary
+*.zip         binary
+*.gz          binary

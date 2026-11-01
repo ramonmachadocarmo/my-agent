@@ -1,0 +1,138 @@
+{
+  "language": "auto",
+  "agent": {
+    "name": "my-agent",
+    "system_prompt": "You are a helpful assistant. Answer concisely and say when you do not know.",
+    "provider": "claude",
+    "temperature": 0.2,
+    "max_tokens": 4096,
+    "use_rag": true
+  },
+  "providers": {
+    "claude": {
+      "type": "claude",
+      "model": "claude-sonnet-5",
+      "base_url": "https://api.anthropic.com",
+      "api_key": "",
+      "api_key_env": "ANTHROPIC_API_KEY",
+      "embedding_model": "",
+      "timeout_seconds": 120,
+      "keep_alive": "",
+      "num_ctx": 0,
+      "api_keys": ["env:ANTHROPIC_API_KEY_2"],
+      "models": ["claude-opus-5-5", "claude-haiku-4-5-20251001"]
+    },
+    "gemini": {
+      "type": "gemini",
+      "model": "gemini-2.5-flash",
+      "base_url": "https://generativelanguage.googleapis.com",
+      "api_key": "",
+      "api_key_env": "GEMINI_API_KEY",
+      "embedding_model": "gemini-embedding-001",
+      "timeout_seconds": 120,
+      "keep_alive": "",
+      "num_ctx": 0
+    },
+    "openrouter": {
+      "type": "openai",
+      "model": "openrouter/auto",
+      "base_url": "https://openrouter.ai/api/v1",
+      "api_key": "",
+      "api_key_env": "OPENROUTER_API_KEY",
+      "embedding_model": "",
+      "timeout_seconds": 120,
+      "keep_alive": "",
+      "num_ctx": 0,
+      "headers": { "X-Title": "my-agent" }
+    },
+    "ollama": {
+      "type": "ollama",
+      "model": "qwen2.5-coder:14b",
+      "base_url": "http://localhost:11434",
+      "api_key": "",
+      "api_key_env": "",
+      "embedding_model": "nomic-embed-text",
+      "timeout_seconds": 300,
+      "keep_alive": "30m",
+      "num_ctx": 16384
+    }
+  },
+  "rag": {
+    "store_path": "data/rag-store.json",
+    "embedder": "ollama",
+    "chunk_size": 800,
+    "chunk_overlap": 100,
+    "top_k": 4,
+    "min_score": 0.05
+  },
+  "connectors": [
+    { "name": "docs", "type": "file", "path": "./docs", "url": "", "include": ["*.md"], "recursive": true },
+    {
+      "name": "crm", "type": "database", "path": "", "url": "", "include": null, "recursive": false,
+      "database": { "driver": "postgres", "dsn_env": "CRM_DATABASE_URL", "query": "SELECT name, email, notes FROM customers", "max_rows": 200 }
+    },
+    {
+      "name": "local-db", "type": "database", "path": "", "url": "", "include": null, "recursive": false,
+      "database": { "driver": "sqlite", "dsn": "./data/app.db", "allow_write": true }
+    },
+    {
+      "name": "work-mail", "type": "email", "path": "", "url": "", "include": null, "recursive": false,
+      "email": {
+        "imap_host": "imap.gmail.com", "imap_port": 993,
+        "smtp_host": "smtp.gmail.com", "smtp_port": 587,
+        "username": "me@example.com", "password_env": "WORK_MAIL_APP_PASSWORD",
+        "folder": "INBOX", "limit": 50
+      }
+    }
+  ],
+  "server": { "addr": "127.0.0.1:8080" },
+  "default_agent": "build",
+  "agents": {
+    "build": { "model": "claude-sonnet-5" },
+    "plan": { "provider": "gemini", "model": "gemini-2.5-pro" },
+    "review": {
+      "description": "Reviews the current changes without touching files",
+      "provider": "claude",
+      "instructions": "Review the code for bugs and risky changes. Run git diff to see them. Report findings ranked by severity.",
+      "tools": { "write": false, "edit": false },
+      "permission": { "bash": "deny", "bash:git diff*": "allow", "bash:git log*": "allow" },
+      "color": "#f7768e"
+    },
+    "local": {
+      "description": "Offline, on Ollama",
+      "provider": "ollama",
+      "max_steps": 15,
+      "temperature": 0.1
+    },
+    "secretary": {
+      "description": "E-mail and CRM assistant",
+      "instructions": "You help with e-mail and customer data. Always show a draft and wait for confirmation before sending anything.",
+      "tools": { "*": false, "email_*": true, "db_query": true, "db_schema": true, "rag_search": true }
+    }
+  },
+  "permission": {
+    "webfetch": "allow",
+    "bash:git status*": "allow",
+    "bash:go test*": "allow",
+    "bash:rm *": "deny",
+    "mcp_github_*": "ask"
+  },
+  "mcp": {
+    "github": {
+      "type": "local",
+      "command": ["npx", "-y", "@modelcontextprotocol/server-github"],
+      "environment": { "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}" }
+    },
+    "context7": {
+      "type": "remote",
+      "url": "https://mcp.context7.com/mcp"
+    },
+    "playwright": {
+      "type": "local",
+      "command": ["npx", "-y", "@playwright/mcp@latest"],
+      "enabled": false
+    }
+  },
+  "shell": "",
+  "theme": "auto"
+}

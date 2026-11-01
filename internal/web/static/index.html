@@ -1,0 +1,474 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>My Agent</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --fg:#1c1f24; --muted:#6b7280; --line:#dfe3e8; --accent:#4f46e5; --accent-fg:#fff; --err:#b91c1c; --ok:#15803d; --user:#e0e7ff; --bot:#f1f5f9; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0f1115; --card:#181b21; --fg:#e6e8eb; --muted:#9aa3af; --line:#2a2f38; --accent:#818cf8; --accent-fg:#0f1115; --err:#f87171; --ok:#4ade80; --user:#27306b; --bot:#232833; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.5 system-ui,-apple-system,Segoe UI,sans-serif; }
+  header { display:flex; align-items:center; gap:16px; padding:12px 20px; background:var(--card); border-bottom:1px solid var(--line); flex-wrap:wrap; }
+  header h1 { font-size:17px; margin:0; }
+  header select#langSel { width:auto; margin-left:auto; padding:5px 8px; }
+  nav { display:flex; gap:4px; }
+  nav button { background:none; border:0; color:var(--muted); padding:6px 12px; border-radius:6px; cursor:pointer; font:inherit; }
+  nav button.active { background:var(--accent); color:var(--accent-fg); }
+  main { max-width:960px; margin:0 auto; padding:20px; }
+  section { display:none; } section.active { display:block; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px; margin-bottom:16px; }
+  .card h2 { margin:0 0 12px; font-size:15px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:12px; }
+  label { display:flex; flex-direction:column; gap:4px; font-size:12px; color:var(--muted); }
+  label.check { flex-direction:row; align-items:center; gap:8px; font-size:14px; color:var(--fg); }
+  input, select, textarea { font:inherit; color:var(--fg); background:var(--bg); border:1px solid var(--line); border-radius:6px; padding:7px 9px; width:100%; }
+  textarea { resize:vertical; min-height:70px; }
+  input[type=checkbox] { width:auto; }
+  button.btn { background:var(--accent); color:var(--accent-fg); border:0; border-radius:6px; padding:8px 14px; cursor:pointer; font:inherit; }
+  button.btn.sec { background:none; color:var(--fg); border:1px solid var(--line); }
+  button.btn:disabled { opacity:.5; cursor:wait; }
+  .row { display:flex; gap:8px; align-items:end; flex-wrap:wrap; }
+  .row > * { flex:1; } .row > button { flex:none; }
+  #log { height:52vh; overflow:auto; display:flex; flex-direction:column; gap:10px; padding:4px; }
+  .msg { max-width:85%; padding:9px 12px; border-radius:10px; white-space:pre-wrap; word-wrap:break-word; }
+  .msg.user { align-self:flex-end; background:var(--user); } .msg.bot { align-self:flex-start; background:var(--bot); }
+  .msg small { display:block; margin-top:6px; color:var(--muted); }
+  table { width:100%; border-collapse:collapse; } td,th { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); font-size:14px; word-break:break-all; }
+  #toast { position:fixed; bottom:16px; left:50%; transform:translateX(-50%); padding:9px 16px; border-radius:8px; background:var(--card); border:1px solid var(--line); display:none; max-width:90vw; }
+  #toast.err { color:var(--err); } #toast.ok { color:var(--ok); }
+  .muted { color:var(--muted); font-size:13px; }
+  pre { white-space:pre-wrap; margin:0; font-size:13px; }
+
+  /* chat */
+  #log { gap:14px; padding:8px 4px; scroll-behavior:smooth; }
+  #log:empty::before { content:attr(data-empty); color:var(--muted); margin:auto; text-align:center; max-width:34ch; }
+  .turn { display:flex; gap:10px; align-items:flex-start; max-width:100%; animation:pop .18s ease-out; }
+  .turn.user { flex-direction:row-reverse; }
+  .avatar { flex:none; width:30px; height:30px; border-radius:50%; display:grid; place-items:center; font-size:14px; font-weight:600; background:var(--accent); color:var(--accent-fg); }
+  .turn.user .avatar { background:var(--user); color:var(--fg); }
+  .bubble { max-width:min(85%,720px); }
+  .msg { max-width:none; white-space:normal; line-height:1.55; }
+  .msg.user { white-space:pre-wrap; }
+  .msg p, .msg ul { margin:.35em 0; } .msg ul { padding-left:1.3em; } .msg h4 { margin:.6em 0 .2em; font-size:15px; }
+  .msg code { font:12.5px/1.4 ui-monospace,Consolas,monospace; background:rgba(127,127,127,.18); padding:1px 5px; border-radius:4px; }
+  .msg pre { background:#0d1117; color:#e6edf3; border-radius:8px; padding:10px 12px; margin:.5em 0; overflow:auto; }
+  .msg pre code { background:none; padding:0; color:inherit; }
+  .meta { margin:4px 2px 0; font-size:12px; color:var(--muted); display:flex; gap:6px; flex-wrap:wrap; }
+  .chip { border:1px solid var(--line); border-radius:999px; padding:0 8px; max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .typing { display:inline-flex; gap:4px; padding:4px 2px; }
+  .typing i { width:7px; height:7px; border-radius:50%; background:var(--muted); animation:blink 1.2s infinite both; }
+  .typing i:nth-child(2) { animation-delay:.2s; } .typing i:nth-child(3) { animation-delay:.4s; }
+  @keyframes blink { 0%,80%,100% { opacity:.25; transform:scale(.8); } 40% { opacity:1; transform:scale(1); } }
+  @keyframes pop { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>🤖 <span id="agentName">My Agent</span></h1>
+  <nav id="tabs">
+    <button data-tab="chat" class="active" data-i18n="web.ui.tab.chat"></button>
+    <button data-tab="config" data-i18n="web.ui.tab.config"></button>
+    <button data-tab="rag" data-i18n="web.ui.tab.rag"></button>
+    <button data-tab="conn" data-i18n="web.ui.tab.conn"></button>
+  </nav>
+  <select id="langSel" data-i18n-title="web.ui.lang"></select>
+</header>
+<main>
+  <section id="chat" class="active">
+    <div class="card">
+      <div class="row" style="margin-bottom:10px">
+        <label><span data-i18n="web.ui.chat.provider"></span> <select id="chatProvider"></select></label>
+        <span class="muted" id="chatInfo" style="flex:none;align-self:center"></span>
+        <label class="check" style="flex:none"><input type="checkbox" id="chatRag" checked> <span data-i18n="web.ui.chat.use_rag"></span></label>
+        <button class="btn sec" id="chatReset" data-i18n="web.ui.chat.reset"></button>
+      </div>
+      <div id="log"></div>
+      <form id="chatForm" class="row" style="margin-top:10px">
+        <textarea id="chatInput" rows="2" data-i18n-ph="web.ui.chat.placeholder"></textarea>
+        <button class="btn" id="chatSend" data-i18n="web.ui.chat.send"></button>
+      </form>
+    </div>
+  </section>
+
+  <section id="config">
+    <div id="cfgForm"></div>
+    <button class="btn" id="cfgSave" data-i18n="web.ui.cfg.save"></button>
+    <p class="muted" data-i18n="web.ui.cfg.note"></p>
+  </section>
+
+  <section id="rag">
+    <div class="card"><h2><span data-i18n="web.ui.rag.title"></span> <span class="muted" id="ragInfo"></span></h2>
+      <table id="ragTable"></table>
+      <div class="row" style="margin-top:10px"><button class="btn sec" id="ragClear" data-i18n="web.ui.rag.clear"></button></div>
+    </div>
+    <div class="card"><h2 data-i18n="web.ui.rag.ingest"></h2>
+      <div class="row"><label><span data-i18n="web.ui.rag.target"></span> <input id="ingTarget" data-i18n-ph="web.ui.rag.target_ph"></label><button class="btn" id="ingGo" data-i18n="web.ui.rag.ingest"></button></div>
+      <div style="height:12px"></div>
+      <label><span data-i18n="web.ui.rag.paste"></span> <textarea id="ingText"></textarea></label>
+      <div class="row" style="margin-top:8px"><label><span data-i18n="web.ui.rag.source_name"></span> <input id="ingName" data-i18n-ph="web.ui.rag.source_ph"></label><button class="btn" id="ingTextGo" data-i18n="web.ui.rag.ingest_text"></button></div>
+    </div>
+    <div class="card"><h2 data-i18n="web.ui.rag.search"></h2>
+      <div class="row"><label><span data-i18n="web.ui.rag.query"></span> <input id="qText"></label><button class="btn" id="qGo" data-i18n="web.ui.rag.search"></button></div>
+      <div id="qOut" style="margin-top:10px"></div>
+    </div>
+  </section>
+
+  <section id="conn">
+    <div class="card"><h2 data-i18n="web.ui.conn.title"></h2><table id="connTable"></table></div>
+    <div class="card"><h2 data-i18n="web.ui.conn.new"></h2>
+      <div class="grid">
+        <label><span data-i18n="web.ui.conn.name"></span> <input id="cName"></label>
+        <label><span data-i18n="web.ui.conn.type"></span> <select id="cType"><option>file</option><option>url</option></select></label>
+        <label><span data-i18n="web.ui.conn.path"></span> <input id="cPath"></label>
+        <label><span data-i18n="web.ui.conn.url"></span> <input id="cUrl"></label>
+        <label><span data-i18n="web.ui.conn.include"></span> <input id="cInc" placeholder="*.md,*.txt"></label>
+        <label class="check"><input type="checkbox" id="cRec" checked> <span data-i18n="web.ui.conn.recursive"></span></label>
+      </div>
+      <div class="row" style="margin-top:10px"><button class="btn" id="cAdd" data-i18n="web.ui.conn.add"></button></div>
+    </div>
+  </section>
+</main>
+<div id="toast"></div>
+<script>
+const $ = s => document.querySelector(s);
+const qs = $;
+let cfg = null, history = [], bindings = [];
+const modelCache = {};
+const fmtSize = n => { if (!n) return '0 B'; const u = ['B','KiB','MiB','GiB','TiB']; let i = 0; while (n >= 1024 && i < u.length - 1) { n /= 1024; i++; } return n.toFixed(i ? 1 : 0) + ' ' + u[i]; };
+const withTag = s => s.includes(':') ? s : s + ':latest';
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* ---------- i18n: the messages come from the server's catalog (GET /api/i18n) ---------- */
+let I18N = {}, LANGS = [];
+// A small printf: %s %d %v, %q, %[n]s and %% (the catalog uses Go's templates).
+function fmt(s, args) {
+  let i = 0;
+  return s.replace(/%(?:\[(\d+)\])?[-+# 0]*\d*(?:\.\d+)?([a-zA-Z%])/g, (m, idx, verb) => {
+    if (verb === '%') return '%';
+    const a = idx ? args[idx - 1] : args[i++];
+    return a === undefined ? m : verb === 'q' ? JSON.stringify(String(a)) : String(a);
+  });
+}
+const t = (key, ...args) => fmt(I18N[key] ?? key, args);
+function applyStatic() {
+  document.querySelectorAll('[data-i18n]').forEach(el => el.textContent = t(el.dataset.i18n));
+  document.querySelectorAll('[data-i18n-ph]').forEach(el => el.placeholder = t(el.dataset.i18nPh));
+  document.querySelectorAll('[data-i18n-title]').forEach(el => el.title = t(el.dataset.i18nTitle));
+  $('#log').dataset.empty = t('web.ui.chat.empty');
+  setSending(!!ctrl);
+}
+async function loadI18n() {
+  // Explicit choice in the config wins; "auto" follows the browser's language.
+  const want = cfg && cfg.language && cfg.language !== 'auto' ? cfg.language : navigator.language;
+  try {
+    const r = await (await fetch('/api/i18n?lang=' + encodeURIComponent(want || ''))).json();
+    I18N = r.messages || {}; LANGS = r.languages || [];
+    document.documentElement.lang = r.lang;
+  } catch (e) { /* keep whatever was loaded */ }
+  const sel = $('#langSel'), cur = (cfg && cfg.language) || 'auto';
+  sel.innerHTML = [`<option value="auto">${esc(t('web.ui.lang_auto'))}</option>`]
+    .concat(LANGS.map(l => `<option value="${esc(l.code)}">${esc(l.name)}</option>`)).join('');
+  sel.value = cur;
+  applyStatic();
+}
+$('#langSel').onchange = async e => {
+  try {
+    if (bindings.length) syncBindings();
+    cfg.language = e.target.value;
+    cfg = await api('PUT', '/api/config', cfg);
+    await loadI18n();
+    renderConfig(); updateChatInfo(); renderConn();
+    if ($('#rag').classList.contains('active')) loadRag();
+  } catch (err) { toast(err.message); await loadConfig(); }
+};
+
+function toast(msg, ok) {
+  const el = $('#toast'); el.textContent = msg; el.className = ok ? 'ok' : 'err'; el.style.display = 'block';
+  clearTimeout(toast.h); toast.h = setTimeout(() => el.style.display = 'none', 4000);
+}
+async function api(method, url, body) {
+  const r = await fetch(url, { method, headers: body ? {'Content-Type':'application/json'} : {}, body: body ? JSON.stringify(body) : undefined });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || r.statusText);
+  return data;
+}
+async function busy(btn, fn) {
+  btn.disabled = true;
+  try { return await fn(); } catch (e) { toast(e.message); } finally { btn.disabled = false; }
+}
+
+$('#tabs').onclick = e => {
+  const tab = e.target.dataset.tab; if (!tab) return;
+  document.querySelectorAll('nav button').forEach(b => b.classList.toggle('active', b === e.target));
+  document.querySelectorAll('main > section').forEach(s => s.classList.toggle('active', s.id === tab));
+  if (tab === 'rag') loadRag(); if (tab === 'conn') renderConn(); if (tab === 'config') renderConfig();
+};
+
+/* ---------- config ---------- */
+async function loadConfig() {
+  cfg = await api('GET', '/api/config');
+  await loadI18n();
+  $('#agentName').textContent = cfg.agent.name;
+  const names = Object.keys(cfg.providers);
+  const chosen = $('#chatProvider').value;
+  $('#chatProvider').innerHTML = names.map(n => `<option ${n===(chosen||cfg.agent.provider)?'selected':''}>${esc(n)}</option>`).join('');
+  updateChatInfo();
+  renderConfig();
+}
+function field(obj, key, label, opts) {
+  const v = obj[key], id = 'f' + Math.random().toString(36).slice(2);
+  let input;
+  if (opts) input = `<select id="${id}">${opts.map(o => `<option ${o===v?'selected':''}>${esc(o)}</option>`).join('')}</select>`;
+  else if (typeof v === 'boolean') return {html:`<label class="check"><input type="checkbox" id="${id}" ${v?'checked':''}> ${label}</label>`, id, obj, key};
+  else if (key === 'system_prompt') input = `<textarea id="${id}" rows="4">${esc(v)}</textarea>`;
+  else input = `<input id="${id}" value="${esc(v)}" ${typeof v==='number'?'type="number" step="any"':''}>`;
+  return {html:`<label>${label}${input}</label>`, id, obj, key};
+}
+function renderConfig() {
+  if (!cfg) return;
+  bindings = [];
+  const names = Object.keys(cfg.providers);
+  const card = (title, fields, extra = '') => {
+    fields.forEach(f => bindings.push(f));
+    return `<div class="card"><h2>${title}</h2><div class="grid">${fields.map(f => f.html).join('')}</div>${extra}</div>`;
+  };
+  let html = card(esc(t('web.ui.cfg.agent')), [
+    field(cfg.agent,'name',esc(t('web.ui.cfg.name'))), field(cfg.agent,'provider',esc(t('web.ui.cfg.default_provider')),names),
+    field(cfg.agent,'temperature',esc(t('web.ui.cfg.temperature'))), field(cfg.agent,'max_tokens',esc(t('web.ui.cfg.max_tokens'))),
+    field(cfg.agent,'use_rag',esc(t('web.ui.cfg.use_rag_default'))), field(cfg.agent,'system_prompt',esc(t('web.ui.cfg.system_prompt')))]);
+  for (const n of names) {
+    const p = cfg.providers[n];
+    const extra = p.type !== 'ollama' ? '' : `
+      <div class="row" style="margin-top:14px">
+        <label>${esc(t('web.ui.models.installed'))} <select data-msel="${esc(n)}"><option>${esc(t('web.ui.models.loading'))}</option></select></label>
+        <label>${esc(t('web.ui.models.use_as'))} <select data-mas="${esc(n)}"><option value="model">${esc(t('web.ui.models.as_chat'))}</option><option value="embedding">${esc(t('web.ui.models.as_embed'))}</option></select></label>
+        <label data-mother="${esc(n)}" style="display:none">${esc(t('web.ui.models.name'))} <input data-mname="${esc(n)}"></label>
+        <button class="btn" type="button" data-pull="${esc(n)}">${esc(t('web.ui.models.pull'))}</button>
+      </div>
+      <div data-mrun="${esc(n)}" style="margin-top:8px;font-size:13px"></div>
+      <div class="muted" data-mprog="${esc(n)}" style="margin-top:6px">${esc(t('web.ui.models.hint'))}</div>`;
+    html += card(`${esc(t('web.ui.cfg.provider_card', n))} <button class="btn sec" data-test="${esc(n)}" type="button">${esc(t('web.ui.cfg.test'))}</button>`,
+      ['type','model','base_url','api_key','api_key_env','embedding_model','timeout_seconds', ...(p.type === 'ollama' ? ['keep_alive','num_ctx'] : [])].map(k => field(p,k,k)), extra);
+  }
+  html += card(esc(t('web.ui.cfg.rag')), [
+    field(cfg.rag,'store_path',esc(t('web.ui.cfg.store_path'))), field(cfg.rag,'embedder',esc(t('web.ui.cfg.embedder')),['local',...names]),
+    field(cfg.rag,'chunk_size',esc(t('web.ui.cfg.chunk_size'))), field(cfg.rag,'chunk_overlap',esc(t('web.ui.cfg.chunk_overlap'))),
+    field(cfg.rag,'top_k',esc(t('web.ui.cfg.top_k'))), field(cfg.rag,'min_score',esc(t('web.ui.cfg.min_score')))]);
+  html += card(esc(t('web.ui.cfg.server')), [field(cfg.server,'addr',esc(t('web.ui.cfg.addr')))]);
+  $('#cfgForm').innerHTML = html;
+  $('#cfgForm').onclick = e => {
+    const tn = e.target.dataset.test, p = e.target.dataset.pull;
+    if (tn) busy(e.target, async () => {
+      const r = await api('POST', `/api/providers/${encodeURIComponent(tn)}/test`, {}); toast(t('web.ui.cfg.test_ok', tn, r.millis), true); });
+    if (p) busy(e.target, () => pullModel(p));
+  };
+  $('#cfgForm').onchange = e => {
+    if (e.target.dataset.msel) showOther(e.target.dataset.msel);
+    if (e.target.dataset.mas && modelCache[e.target.dataset.mas]) fillModels(e.target.dataset.mas);
+  };
+  $('#cfgSave').onclick = e => busy(e.target, async () => {
+    syncBindings();
+    cfg = await api('PUT', '/api/config', cfg); toast(t('web.ui.cfg.saved'), true); await loadConfig();
+  });
+  names.filter(n => cfg.providers[n].type === 'ollama').forEach(loadModels);
+}
+function syncBindings() { // copy form values into cfg so re-rendering never loses unsaved edits
+  for (const b of bindings) {
+    const el = document.getElementById(b.id); if (!el) continue;
+    const old = b.obj[b.key];
+    b.obj[b.key] = typeof old === 'boolean' ? el.checked : typeof old === 'number' ? Number(el.value) : el.value;
+  }
+}
+
+/* ---------- ollama models ---------- */
+async function loadModels(n) {
+  try {
+    modelCache[n] = await api('GET', `/api/providers/${encodeURIComponent(n)}/models`);
+    fillModels(n);
+    showRunning(n);
+  } catch (e) {
+    qs(`[data-msel="${n}"]`).innerHTML = `<option value="__other__">${esc(t('web.ui.models.unavailable'))}</option>`;
+    qs(`[data-mprog="${n}"]`).textContent = t('web.ui.models.list_failed', e.message);
+    showOther(n);
+  }
+}
+function fillModels(n) {
+  const r = modelCache[n], sel = qs(`[data-msel="${n}"]`);
+  const cur = qs(`[data-mas="${n}"]`).value === 'embedding' ? r.embedding_model : r.model;
+  sel.innerHTML = r.models.map(m => `<option value="${esc(m.name)}" ${withTag(m.name) === withTag(cur || '') ? 'selected' : ''}>${esc(m.name)} (${fmtSize(m.size)})</option>`).join('')
+    + `<option value="__other__">${esc(t("web.ui.models.other_option"))}</option>`;
+  if (!r.models.length) sel.value = '__other__';
+  showOther(n);
+}
+function showRunning(n) {
+  const el = qs(`[data-mrun="${n}"]`), run = modelCache[n].running || [];
+  if (!el) return;
+  el.innerHTML = run.length ? run.map(m => {
+    const gpu = m.size ? Math.floor(m.size_vram * 100 / m.size) : 0, slow = m.size_vram < m.size;
+    return slow
+      ? `<span style="color:var(--err)">${esc(t('web.ui.models.cpu', m.name, 100 - gpu))}</span>`
+      : `<span style="color:var(--ok)">● ${esc(t('web.ui.models.loaded', m.name, fmtSize(m.size)))}</span>`;
+  }).join('<br>') : `<span class="muted">${esc(t('web.ui.models.none_loaded'))}</span>`;
+}
+function showOther(n) {
+  qs(`[data-mother="${n}"]`).style.display = qs(`[data-msel="${n}"]`).value === '__other__' ? '' : 'none';
+}
+async function pullModel(n) {
+  syncBindings();
+  const kind = qs(`[data-mas="${n}"]`).value, sel = qs(`[data-msel="${n}"]`);
+  const model = (sel.value === '__other__' ? qs(`[data-mname="${n}"]`).value : sel.value).trim();
+  if (!model) throw new Error(t('web.ui.models.need_name'));
+  const prog = qs(`[data-mprog="${n}"]`);
+  prog.textContent = t('web.ui.models.starting');
+  const resp = await fetch(`/api/providers/${encodeURIComponent(n)}/models/pull`, {
+    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({model, set_as: kind}) });
+  if (!resp.ok) throw new Error((await resp.json().catch(() => ({}))).error || resp.statusText);
+  const reader = resp.body.getReader(), dec = new TextDecoder();
+  let buf = '', done = null;
+  for (;;) {
+    const {value, done: end} = await reader.read(); if (end) break;
+    buf += dec.decode(value, {stream: true});
+    let i;
+    while ((i = buf.indexOf('\n')) >= 0) {
+      const line = buf.slice(0, i).trim(); buf = buf.slice(i + 1); if (!line) continue;
+      const m = JSON.parse(line);
+      if (m.error) throw new Error(m.error);
+      if (m.done) done = m;
+      else prog.textContent = m.total ? `${m.status} ${Math.floor(m.completed * 100 / m.total)}% (${fmtSize(m.completed)} / ${fmtSize(m.total)})` : m.status;
+    }
+  }
+  if (!done) throw new Error(t('web.ui.models.cut'));
+  cfg.providers[n][kind === 'embedding' ? 'embedding_model' : 'model'] = model;
+  renderConfig();
+  toast(done.downloaded ? t('web.ui.models.downloaded', model) : t('web.ui.models.was_installed', model), true);
+}
+
+/* ---------- chat ---------- */
+/* Minimal, safe markdown: input is HTML-escaped first, then a few constructs are re-added. */
+function md(src) {
+  const blocks = [];
+  let s = esc(src).replace(/```[\w-]*\n?([\s\S]*?)```/g, (_, code) => { blocks.push(`<pre><code>${code.replace(/\n$/, '')}</code></pre>`); return `\u0000${blocks.length - 1}\u0000`; });
+  s = s.replace(/`([^`\n]+)`/g, '<code>$1</code>').replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  const out = []; let list = false;
+  for (const line of s.split('\n')) {
+    const li = line.match(/^\s*[-*] (.*)/), h = line.match(/^#{1,6} (.*)/);
+    if (li) { if (!list) { out.push('<ul>'); list = true; } out.push(`<li>${li[1]}</li>`); continue; }
+    if (list) { out.push('</ul>'); list = false; }
+    out.push(h ? `<h4>${h[1]}</h4>` : /^\u0000\d+\u0000$/.test(line.trim()) ? line.trim() : line.trim() ? `<p>${line}</p>` : '');
+  }
+  if (list) out.push('</ul>');
+  return out.join('').replace(/\u0000(\d+)\u0000/g, (_, i) => blocks[i]);
+}
+function turn(cls, inner) {
+  const row = document.createElement('div'); row.className = 'turn ' + cls;
+  row.innerHTML = `<div class="avatar">${cls === 'user' ? esc(t('web.ui.chat.avatar_user')) : '✦'}</div><div class="bubble">${inner}</div>`;
+  $('#log').appendChild(row); $('#log').scrollTop = 1e9;
+  return row;
+}
+function addMeta(row, sources, ms) {
+  if (!(sources && sources.length) && !ms) return;
+  const meta = document.createElement('div'); meta.className = 'meta';
+  meta.innerHTML = (ms ? `<span>${(ms / 1000).toFixed(1)}s</span>` : '') +
+    (sources || []).map((r, i) => `<span class="chip" title="${esc(r.chunk.source)}">[${i + 1}] ${esc(r.chunk.source.split(/[\\/]/).pop())}</span>`).join('');
+  row.querySelector('.bubble').appendChild(meta);
+}
+function addMsg(cls, text, sources, ms) {
+  const row = turn(cls, '<div class="msg ' + cls + '"></div>');
+  const box = row.querySelector('.msg');
+  if (cls === 'user') box.textContent = text; else box.innerHTML = md(text);
+  addMeta(row, sources, ms);
+  $('#log').scrollTop = 1e9;
+}
+function updateChatInfo() {
+  const p = cfg && cfg.providers[$('#chatProvider').value];
+  $('#chatInfo').textContent = p ? `${$('#chatProvider').value} · ${p.model}` : '';
+}
+$('#chatProvider').onchange = updateChatInfo;
+let ctrl = null; // AbortController of the reply being generated
+function setSending(on) { $('#chatSend').textContent = on ? t('web.ui.chat.stop') : t('web.ui.chat.send'); $('#chatSend').classList.toggle('sec', on); }
+async function send() {
+  if (ctrl) return;
+  const text = $('#chatInput').value.trim(); if (!text) return;
+  $('#chatInput').value = ''; addMsg('user', text);
+  const row = turn('bot', '<div class="msg bot"><span class="typing"><i></i><i></i><i></i></span></div>');
+  const box = row.querySelector('.msg'), t0 = performance.now();
+  let acc = '', final = null;
+  ctrl = new AbortController(); setSending(true);
+  try {
+    const resp = await fetch('/api/chat/stream', { method: 'POST', headers: {'Content-Type': 'application/json'}, signal: ctrl.signal,
+      body: JSON.stringify({ message: text, provider: $('#chatProvider').value, use_rag: $('#chatRag').checked, history }) });
+    if (!resp.ok) throw new Error((await resp.json().catch(() => ({}))).error || resp.statusText);
+    const reader = resp.body.getReader(), dec = new TextDecoder();
+    let buf = '';
+    for (;;) {
+      const {value, done} = await reader.read(); if (done) break;
+      buf += dec.decode(value, {stream: true});
+      let i;
+      while ((i = buf.indexOf('\n')) >= 0) {
+        const line = buf.slice(0, i).trim(); buf = buf.slice(i + 1); if (!line) continue;
+        const m = JSON.parse(line);
+        if (m.error) throw new Error(m.error);
+        if (m.delta) { acc += m.delta; box.innerHTML = md(acc); $('#log').scrollTop = 1e9; }
+        if (m.done) final = m;
+      }
+    }
+    if (!final) throw new Error(t('web.ui.chat.cut'));
+    history.push({role:'user', content:text}, {role:'assistant', content:final.text});
+    addMeta(row, final.sources, performance.now() - t0);
+  } catch (e) {
+    if (e.name === 'AbortError') { if (acc) box.innerHTML = md(acc) + `<p class="muted">${esc(t('web.ui.chat.interrupted'))}</p>`; else row.remove(); }
+    else { if (acc) box.innerHTML = md(acc) + `<p class="muted">⚠ ${esc(e.message)}</p>`; else row.remove(); toast(e.message); }
+  } finally { ctrl = null; setSending(false); }
+}
+$('#chatForm').onsubmit = e => { e.preventDefault(); if (ctrl) ctrl.abort(); else send(); };
+$('#chatInput').onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } };
+$('#chatReset').onclick = () => { history = []; $('#log').innerHTML = ''; };
+
+/* ---------- rag ---------- */
+async function loadRag() {
+  const r = await api('GET', '/api/rag');
+  $('#ragInfo').textContent = t('web.ui.rag.info', r.chunks, r.embedder || t('web.ui.rag.no_embedder'));
+  $('#ragTable').innerHTML = `<tr><th>${esc(t('web.ui.rag.th_source'))}</th><th>${esc(t('web.ui.rag.th_chunks'))}</th><th></th></tr>` +
+    (r.sources.map(s => `<tr><td>${esc(s.source)}</td><td>${s.chunks}</td><td><button class="btn sec" data-rm="${esc(s.source)}">${esc(t('web.ui.rag.remove'))}</button></td></tr>`).join('') || `<tr><td colspan="3" class="muted">${esc(t('web.ui.rag.empty'))}</td></tr>`);
+}
+$('#ragTable').onclick = e => { const s = e.target.dataset.rm; if (s) busy(e.target, async () => { await api('POST','/api/rag/remove',{source:s}); loadRag(); }); };
+$('#ragClear').onclick = e => { if (confirm(t('web.ui.rag.confirm_clear'))) busy(e.target, async () => { await api('POST','/api/rag/clear',{}); loadRag(); }); };
+$('#ingGo').onclick = e => busy(e.target, async () => {
+  const target = $('#ingTarget').value.trim(); if (!target) return;
+  const r = await api('POST','/api/rag/ingest', /^https?:\/\//.test(target) ? {url:target} : {path:target});
+  toast(t('web.ui.rag.ingested', r.documents, r.chunks), true); loadRag();
+});
+$('#ingTextGo').onclick = e => busy(e.target, async () => {
+  const r = await api('POST','/api/rag/ingest',{name:$('#ingName').value.trim(), text:$('#ingText').value});
+  toast(t('web.ui.rag.ingested_text', r.chunks), true); loadRag();
+});
+$('#qGo').onclick = e => busy(e.target, async () => {
+  const res = await api('POST','/api/rag/search',{query:$('#qText').value});
+  $('#qOut').innerHTML = res.length ? res.map(r => `<div class="card"><div class="muted">${esc(r.chunk.source)} · score ${r.score.toFixed(3)}</div><pre>${esc(r.chunk.text)}</pre></div>`).join('') : `<span class="muted">${esc(t('web.ui.rag.no_results'))}</span>`;
+});
+
+/* ---------- connectors ---------- */
+function renderConn() {
+  if (!cfg) return;
+  $('#connTable').innerHTML = `<tr><th>${esc(t('web.ui.conn.name'))}</th><th>${esc(t('web.ui.conn.type'))}</th><th>${esc(t('web.ui.conn.th_target'))}</th><th></th></tr>` +
+    (cfg.connectors.map(c => `<tr><td>${esc(c.name)}</td><td>${esc(c.type)}</td><td>${esc(c.path || c.url)}</td>
+      <td><button class="btn" data-sync="${esc(c.name)}">${esc(t('web.ui.conn.sync'))}</button> <button class="btn sec" data-del="${esc(c.name)}">${esc(t('web.ui.conn.remove'))}</button></td></tr>`).join('') || `<tr><td colspan="4" class="muted">${esc(t('web.ui.conn.none'))}</td></tr>`);
+}
+$('#connTable').onclick = e => {
+  const s = e.target.dataset.sync, d = e.target.dataset.del;
+  if (s) busy(e.target, async () => { const r = await api('POST', `/api/connectors/${encodeURIComponent(s)}/sync`, {}); toast(t('web.ui.conn.synced', s, r.documents, r.chunks), true); });
+  if (d) busy(e.target, async () => { await api('DELETE', `/api/connectors/${encodeURIComponent(d)}`); await loadConfig(); renderConn(); });
+};
+$('#cAdd').onclick = e => busy(e.target, async () => {
+  const inc = $('#cInc').value.split(',').map(s => s.trim()).filter(Boolean);
+  await api('POST','/api/connectors',{name:$('#cName').value.trim(), type:$('#cType').value, path:$('#cPath').value.trim(), url:$('#cUrl').value.trim(), include:inc, recursive:$('#cRec').checked});
+  await loadConfig(); renderConn(); toast(t('web.ui.conn.added'), true);
+});
+
+loadConfig().catch(e => toast(e.message));
+</script>
+</body>
+</html>
